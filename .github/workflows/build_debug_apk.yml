@@ -1,6 +1,5 @@
-name: Build Debug APK（手动）
+name: 手动编译密钥检测APK
 on:
-  # 只有手动触发
   workflow_dispatch:
 
 jobs:
@@ -13,8 +12,10 @@ jobs:
         with:
           java-version: 17
           distribution: temurin
+      - name: Grant permission
+        run: chmod +x gradlew
       - name: Build APK
-        run: gradle assembleDebug
+        run: ./gradlew assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
