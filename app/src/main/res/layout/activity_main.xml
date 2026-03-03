@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:gap="16dp">
+    android:padding="16dp">
 
     <Button
         android:id="@+id/btn_check_trust"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="开始设备可信性校验"
-        android:textSize="16sp" />
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp"/>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -20,8 +20,9 @@
             android:id="@+id/tv_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="点击开始校验"
+            android:text="点击上方按钮开始校验"
             android:textSize="14sp"
             android:typeface="monospace" />
     </ScrollView>
+
 </LinearLayout>
