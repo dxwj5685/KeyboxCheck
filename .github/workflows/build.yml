@@ -14,15 +14,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 使用官方 Gradle Build Action，自动处理 wrapper 和缓存
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.2' # 与你项目 build.gradle.kts 中的版本一致
+      # 1. 安装 Gradle
+      - name: Install Gradle
+        run: sudo apt-get update && sudo apt-get install -y gradle
 
+      # 2. 自动生成 gradlew 脚本和相关文件
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper
+
+      # 3. 确保脚本可执行
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # 4. 构建 APK
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
+      # 5. 上传产物
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
