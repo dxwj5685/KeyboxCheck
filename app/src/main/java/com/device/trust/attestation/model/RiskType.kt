@@ -1,0 +1,12 @@
+package com.device.trust.attestation.model
+enum class RiskType {
+    TRUSTED,
+    ROOT_CA_INVALID,
+    CERTIFICATE_CHAIN_INVALID,
+    MULTIPLE_SERIAL_NUMBER,
+    SERIAL_NUMBER_MISMATCH,
+    SECURITY_LEVEL_INVALID,
+    PERMISSION_DENIED,
+    ATTESTATION_FAILED,
+    UNKNOWN_RISK
+}
