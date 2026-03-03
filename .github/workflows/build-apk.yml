@@ -13,13 +13,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 🔥 强制修复 gradlew 脚本（解决 ulimit + 语法错误）
-      - name: Fix broken gradlew
+      - name: Delete broken gradle files & generate new
         run: |
+          rm -rf gradlew gradle/wrapper/
+          gradle wrapper --gradle-version 8.5
           chmod +x gradlew
-          sed -i '107d' gradlew  # 删掉报错的 ulimit 行
-          sed -i 's/ulimit -n/# ulimit -n/g' gradlew
-          sed -i 's/MAX_FD="maximum"/MAX_FD="1024"/g' gradlew
+          sed -i 's/ulimit -n /# ulimit -n /' gradlew
 
       - name: Build APK
         run: ./gradlew assembleDebug --no-daemon
