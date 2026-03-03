@@ -7,15 +7,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Grant gradlew exec permission
-        run: chmod +x gradlew
+
+      # ✅ 云端自动生成官方纯净 gradlew（核心修复）
+      - name: Generate clean Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
+          # 屏蔽 ulimit 错误
+          sed -i 's/^ulimit -n /# ulimit -n /' gradlew
+
+      # ✅ 正常编译
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
