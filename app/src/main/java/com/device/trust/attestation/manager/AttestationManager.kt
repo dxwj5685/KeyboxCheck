@@ -17,27 +17,36 @@ class AttestationManager {
 
     fun getAttestationCertificateChain(): Array<Certificate>? {
         return try {
-            val ks = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
-            if (ks.containsAlias(KEY_ALIAS)) ks.deleteEntry(KEY_ALIAS)
+            // 初始化KeyStore
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            // 清空历史密钥
+            if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
 
-            // 密钥生成配置，兼容API 26+
-            val builder = KeyGenParameterSpec.Builder(
-                KEY_ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+            // 密钥生成配置，全版本兼容
+            val specBuilder = KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
             ).apply {
                 setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
                 setDigests(KeyProperties.DIGEST_SHA256)
                 setAttestationChallenge(CHALLENGE.toByteArray())
                 setUserAuthenticationRequired(false)
-                // 仅在API 31+ 强制TEE级别，低版本默认使用TEE生成密钥
+                // 仅在API 31+ 强制TEE安全级别，低版本自动使用默认TEE生成
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     setSecurityLevel(KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT)
                 }
             }
 
-            val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE_PROVIDER)
-            kpg.initialize(builder.build())
-            kpg.generateKeyPair()
-            ks.getCertificateChain(KEY_ALIAS)
+            // 生成密钥对
+            val keyPairGenerator = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_EC,
+                KEYSTORE_PROVIDER
+            )
+            keyPairGenerator.initialize(specBuilder.build())
+            keyPairGenerator.generateKeyPair()
+
+            // 返回完整证书链
+            keyStore.getCertificateChain(KEY_ALIAS)
         } catch (e: Exception) {
             e.printStackTrace()
             null
