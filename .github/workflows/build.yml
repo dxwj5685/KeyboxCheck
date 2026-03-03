@@ -18,9 +18,9 @@ jobs:
       - name: Install Gradle
         run: sudo apt-get update && sudo apt-get install -y gradle
 
-      # 2. 生成与 JDK 17 兼容的 Gradle Wrapper (版本 7.5)
+      # 2. 生成与 AGP 8.2 兼容的 Gradle Wrapper (版本 8.2)
       - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 7.5
+        run: gradle wrapper --gradle-version 8.2
 
       # 3. 确保脚本可执行
       - name: Make gradlew executable
