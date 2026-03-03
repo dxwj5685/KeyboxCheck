@@ -1,7 +1,5 @@
 package com.device.trust.attestation.checker
 
-import android.content.Context
-import android.os.Build
 import com.device.trust.attestation.manager.AttestationManager
 import com.device.trust.attestation.model.RiskType
 import com.device.trust.attestation.model.TrustResult
@@ -18,73 +16,51 @@ class DeviceTrustChecker {
         // 1. 获取硬件密钥证书链
         val chain = attest.getAttestationCertificateChain()
             ?: return TrustResult(
-                false,
-                RiskType.ATTESTATION_FAILED,
-                "获取证书链失败，设备不支持TEE硬件密钥证明"
+                isTrusted = false,
+                riskType = RiskType.ATTESTATION_FAILED,
+                message = "获取证书链失败，设备不支持TEE硬件密钥证明"
             )
 
         val x509Chain = chain.filterIsInstance<X509Certificate>().toTypedArray()
 
-        // 2. 校验证书链（和CertificateValidator里的方法名完全匹配）
+        // 2. 核心校验：仅信任谷歌官方根证书签发的证书链
         if (!certValidator.validate(x509Chain)) {
             return TrustResult(
-                false,
-                RiskType.ROOT_CA_INVALID,
-                "证书链校验失败，非谷歌官方根证书或AOSP测试密钥"
+                isTrusted = false,
+                riskType = RiskType.ROOT_CA_INVALID,
+                message = "证书链校验失败，非谷歌官方根证书或AOSP公开测试密钥"
             )
         }
 
-        // 3. 提取证书链所有序列号
+        // 3. 从证书链中提取所有SERIALNUMBER（对齐vvb2060项目）
         val certSerials = parser.extractAllSerials(x509Chain)
 
-        // 4. 校验多序列号（非法移植/伪造）
+        // 4. 你的核心规则：多SERIALNUMBER直接判定非原厂密钥
         if (certSerials.size > 1) {
             return TrustResult(
-                false,
-                RiskType.MULTIPLE_SERIAL_NUMBER,
-                "证书链存在多个无关序列号，疑似伪造或移植密钥",
+                isTrusted = false,
+                riskType = RiskType.MULTIPLE_SERIAL_NUMBER,
+                message = "似乎是非原厂密钥",
                 certificateSerial = certSerials.joinToString(", ")
             )
         }
 
-        // 5. 获取设备真实序列号
-        val deviceSerial = try {
-            Build.getSerial()
-        } catch (e: SecurityException) {
-            return TrustResult(
-                false,
-                RiskType.PERMISSION_DENIED,
-                "无读取设备序列号权限，无法完成校验"
-            )
-        }
-
-        // 6. 校验序列号匹配性
+        // 5. 证书无序列号的异常处理
         val certSerial = certSerials.firstOrNull()
         if (certSerial.isNullOrEmpty()) {
             return TrustResult(
-                false,
-                RiskType.SERIAL_NUMBER_MISMATCH,
-                "证书未绑定设备序列号，疑似伪造证书",
-                deviceSerial = deviceSerial
+                isTrusted = false,
+                riskType = RiskType.SERIAL_NUMBER_MISMATCH,
+                message = "证书未绑定设备序列号，疑似伪造证书"
             )
         }
 
-        return if (certSerial == deviceSerial) {
-            TrustResult(
-                true,
-                RiskType.TRUSTED,
-                "设备可信，证书由谷歌官方根证书签发，序列号匹配",
-                deviceSerial = deviceSerial,
-                certificateSerial = certSerial
-            )
-        } else {
-            TrustResult(
-                false,
-                RiskType.SERIAL_NUMBER_MISMATCH,
-                "证书序列号与设备真实序列号不匹配，疑似移植其他设备密钥",
-                deviceSerial = deviceSerial,
-                certificateSerial = certSerial
-            )
-        }
+        // 6. 所有校验通过，判定为可信
+        return TrustResult(
+            isTrusted = true,
+            riskType = RiskType.TRUSTED,
+            message = "设备可信，原厂密钥校验通过",
+            certificateSerial = certSerial
+        )
     }
 }
