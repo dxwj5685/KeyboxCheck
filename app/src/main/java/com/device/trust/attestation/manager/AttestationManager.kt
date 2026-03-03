@@ -1,6 +1,5 @@
 package com.device.trust.attestation.manager
 
-import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyPairGenerator
@@ -22,7 +21,7 @@ class AttestationManager {
             // 清空历史密钥
             if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
 
-            // 密钥生成配置，全版本兼容
+            // 【修复】移除了setSecurityLevel，全版本兼容，不影响核心功能
             val specBuilder = KeyGenParameterSpec.Builder(
                 KEY_ALIAS,
                 KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
@@ -31,10 +30,6 @@ class AttestationManager {
                 setDigests(KeyProperties.DIGEST_SHA256)
                 setAttestationChallenge(CHALLENGE.toByteArray())
                 setUserAuthenticationRequired(false)
-                // 仅在API 31+ 强制TEE安全级别，低版本自动使用默认TEE生成
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    setSecurityLevel(KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT)
-                }
             }
 
             // 生成密钥对
