@@ -12,11 +12,19 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Grant permission
-        run: chmod +x gradlew
+
+      # 🔥 强制修复 gradlew 脚本（解决 ulimit + 语法错误）
+      - name: Fix broken gradlew
+        run: |
+          chmod +x gradlew
+          sed -i '107d' gradlew  # 删掉报错的 ulimit 行
+          sed -i 's/ulimit -n/# ulimit -n/g' gradlew
+          sed -i 's/MAX_FD="maximum"/MAX_FD="1024"/g' gradlew
+
       - name: Build APK
-        run: ./gradlew assembleDebug
-      - name: Upload
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: APK
