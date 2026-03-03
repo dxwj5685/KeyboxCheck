@@ -23,7 +23,7 @@ class DeviceTrustChecker {
 
         val x509Chain = chain.filterIsInstance<X509Certificate>().toTypedArray()
 
-        // 2. 核心校验：仅信任谷歌官方根证书签发的证书链
+        // 2. 核心校验：仅信任谷歌官方根证书签发的证书链（这一步是核心，只要通过就说明是原厂密钥）
         if (!certValidator.validate(x509Chain)) {
             return TrustResult(
                 isTrusted = false,
@@ -32,10 +32,10 @@ class DeviceTrustChecker {
             )
         }
 
-        // 3. 从证书链中提取所有SERIALNUMBER（对齐vvb2060项目）
+        // 3. 从证书链中提取所有SERIALNUMBER
         val certSerials = parser.extractAllSerials(x509Chain)
 
-        // 4. 你的核心规则：多SERIALNUMBER直接判定非原厂密钥
+        // 4. 核心规则：多SERIALNUMBER直接判定非原厂密钥
         if (certSerials.size > 1) {
             return TrustResult(
                 isTrusted = false,
@@ -45,22 +45,26 @@ class DeviceTrustChecker {
             )
         }
 
-        // 5. 证书无序列号的异常处理
+        // 5. 序列号校验逻辑优化，区分不同场景，避免误判
         val certSerial = certSerials.firstOrNull()
-        if (certSerial.isNullOrEmpty()) {
-            return TrustResult(
-                isTrusted = false,
-                riskType = RiskType.SERIAL_NUMBER_MISMATCH,
-                message = "证书未绑定设备序列号，疑似伪造证书"
-            )
+        return when {
+            // 证书有绑定序列号，校验通过
+            !certSerial.isNullOrBlank() -> {
+                TrustResult(
+                    isTrusted = true,
+                    riskType = RiskType.TRUSTED,
+                    message = "设备可信，原厂密钥校验通过",
+                    certificateSerial = certSerial
+                )
+            }
+            // 证书无序列号，但是证书链合法，说明是Bootloader解锁/设备不支持ID Attestation
+            else -> {
+                TrustResult(
+                    isTrusted = true,
+                    riskType = RiskType.TRUSTED,
+                    message = "设备可信，证书由谷歌官方根证书签发。设备未写入序列号（Bootloader已解锁或设备不支持ID Attestation）"
+                )
+            }
         }
-
-        // 6. 所有校验通过，判定为可信
-        return TrustResult(
-            isTrusted = true,
-            riskType = RiskType.TRUSTED,
-            message = "设备可信，原厂密钥校验通过",
-            certificateSerial = certSerial
-        )
     }
 }

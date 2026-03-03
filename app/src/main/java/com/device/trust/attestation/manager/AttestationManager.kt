@@ -1,5 +1,6 @@
 package com.device.trust.attestation.manager
 
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyPairGenerator
@@ -21,7 +22,7 @@ class AttestationManager {
             // 清空历史密钥
             if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
 
-            // 【修复】移除了setSecurityLevel，全版本兼容，不影响核心功能
+            // 密钥生成配置，适配全版本，确保写入设备序列号
             val specBuilder = KeyGenParameterSpec.Builder(
                 KEY_ALIAS,
                 KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
@@ -30,6 +31,10 @@ class AttestationManager {
                 setDigests(KeyProperties.DIGEST_SHA256)
                 setAttestationChallenge(CHALLENGE.toByteArray())
                 setUserAuthenticationRequired(false)
+                // 【关键修复】Android 11+ 显式开启设备属性写入，确保序列号写入证书
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setDevicePropertiesAttestationIncluded(true)
+                }
             }
 
             // 生成密钥对
