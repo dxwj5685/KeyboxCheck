@@ -1,12 +1,12 @@
 package com.device.trust.attestation.validator
 
-import org.bouncycastle.asn1.ASN1Encodable
 import org.bouncycastle.asn1.ASN1InputStream
 import org.bouncycastle.asn1.ASN1OctetString
 import org.bouncycastle.asn1.ASN1Sequence
 import org.bouncycastle.asn1.ASN1TaggedObject
 import org.bouncycastle.asn1.DEROctetString
 import java.security.cert.X509Certificate
+import java.util.Enumeration
 
 class AttestationExtensionParser {
     companion object {
@@ -57,14 +57,16 @@ class AttestationExtensionParser {
     // 从授权列表中解析Tag 713对应的序列号
     private fun extractSerialFromAuthList(authList: ASN1Sequence): String? {
         return try {
-            // 修复1：显式指定参数类型，解决类型推断错误
-            val objects = authList.objects
-            // 修复2：用for循环替代forEach，解决lambda内return的语法错误
-            for (obj: ASN1Encodable in objects) {
-                val taggedObj = obj as ASN1TaggedObject
+            // 修复1：正确获取Java Enumeration，用while循环遍历
+            val objects: Enumeration<*> = authList.objects
+            // 修复2：安全遍历+类型校验，解决类型不匹配错误
+            while (objects.hasMoreElements()) {
+                val obj = objects.nextElement()
+                // 先校验类型，再安全转换
+                if (obj !is ASN1TaggedObject) continue
                 // 匹配序列号对应的Tag 713
-                if (taggedObj.tagNo == TAG_ATTESTATION_ID_SERIAL) {
-                    val octetString = taggedObj.baseObject as DEROctetString
+                if (obj.tagNo == TAG_ATTESTATION_ID_SERIAL) {
+                    val octetString = obj.baseObject as DEROctetString
                     return String(octetString.octets)
                 }
             }
