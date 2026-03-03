@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
                         append("是否可信：${if (result.isTrusted) "✅ 是" else "❌ 否"}\n")
                         append("风险类型：${result.riskType.name}\n")
                         append("校验信息：${result.message}\n\n")
-                        result.certificateSerial?.let { append("证书绑定序列号：$it") }
+                        result.deviceSerial?.let { append("设备序列号：$it") }
                     }
                     tvResult.setTextColor(
                         if (result.isTrusted) 0xFF00AA00.toInt() else 0xFFFF0000.toInt()
