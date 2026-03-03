@@ -14,15 +14,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ 云端自动生成官方纯净 gradlew（核心修复）
-      - name: Generate clean Gradle Wrapper
+      # 自动生成 兼容版 gradlew（7.5 匹配 AGP 7.2.2）
+      - name: Generate compatible Gradle Wrapper
         run: |
-          gradle wrapper --gradle-version 8.5
+          gradle wrapper --gradle-version 7.5
           chmod +x gradlew
-          # 屏蔽 ulimit 错误
-          sed -i 's/^ulimit -n /# ulimit -n /' gradlew
+          sed -i 's/ulimit -n /# ulimit -n /' gradlew
 
-      # ✅ 正常编译
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
 
