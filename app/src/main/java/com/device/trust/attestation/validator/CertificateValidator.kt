@@ -8,9 +8,8 @@ import java.security.KeyFactory
 import java.util.*
 
 class CertificateValidator {
-
     companion object {
-        // 谷歌官方根证书公钥
+        // 【对齐原项目】谷歌官方硬件Attestation根证书公钥
         private val GOOGLE_ROOT_PUBLIC_KEY = Base64.getDecoder().decode(
             "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xU" +
             "FmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5j" +
@@ -26,11 +25,7 @@ class CertificateValidator {
             "NpUFgNPN9PvQi8WEg5UmAGMCAwEAAQ=="
         )
 
-        // AOSP测试根证书指纹（直接拉黑）
-        private const val AOSP_TEST_ROOT_FINGERPRINT =
-            "A8:7A:B3:88:AF:E0:30:14:40:E2:AE:2E:63:42:99:1E:80:8A:5F:78:9D:6E:AC:3E:6B:59:70:CB:E7:41:B3"
-
-        // 内置4个谷歌官方根证书
+        // 【对齐原项目】谷歌官方根证书列表
         private val GOOGLE_ROOT_CERTS = listOf(
             "MIIFYDCCA0igAwIBAgIJAOj6GWMU0voYMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTYwNTI2MTYyODUyWhcNMjYwNTI0MTYyODUyWjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaOBpjCBozAdBgNVHQ4EFgQUNmHhAHyIBQlRi0RsR/8aTMnqTxIwHwYDVR0jBBgwFoAUNmHhAHyIBQlRi0RsR/8aTMnqTxIwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwQAYDVR0fBDkwNzA1oDOgMYYvaHR0cHM6Ly9hbmRyb2lkLmdvb2dsZWFwaXMuY29tL2F0dGVzdGF0aW9uL2NybC8wDQYJKoZIhvcNAQELBQADggIBACDIw41L3KlXG0aMiS//cqrG+EShHUGo8HNsw30W1kJtjn6UBwRM6jnmiwfBPb8VA91chb2vssAtX2zbTvqBJ9+LBPGCdw/E53Rbf86qhxKaiAHOjpvAy5Y3m00mqC0w/Zwvju1twb4vhLaJ5NkUJYsUS7rmJKHHBnETLi8GFqiEsqTWpG/6ibYCv7rYDBJDcR9W62BW9jfIoBQcxUCUJouMPH25lLNcDc1ssqvC2v7iUgI9LeoM1sNovqPmQUiG9rHli1vXxzCyaMTjwftkJLkf6724DFhuKug2jITV0QkXvaJWF4nUaHOTNA4uJU9WDvZLI1j83A+/xnAJUucIv/zGJ1AMH2boHqF8CY16LpsYgBt6tKxxWH00XcyDCdW2KlBCeqbQPcsFmWyWugxdcekhYsAWyoSf818NUsZdBWBaR/OukXrNLfkQ79IyZohZbvabO/X+MVT3rriAoKc8oE2Uws6DF+60PV7/WIPjNvXySdqspImSN78mflxDqwLqRBYkA3I75qppLGG9rp7UCdRjxMl8ZDBld+7yvHVgt1cVzJx9xnyGCC23UaicMDSXYrB4I4WHXPGjxhZuCuPBLTdOLU8YRvMYdEvYebWHMpvwGCF6bAx3JBpIeOQ1wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk",
             "MIIFHDCCAwSgAwIBAgIJANUP8luj8tazMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMTkxMTIyMjAzNzU4WhcNMzQxMTE4MjAzNzU4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaNjMGEwHQYDVR0OBBYEFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMB8GA1UdIwQYMBaAFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgIEMA0GCSqGSIb3DQEBCwUAA4ICAQBOMaBc8oumXb2voc7XCWnuXKhBBK3e2KMGz39t7lA3XXRe2ZLLAkLM5y3J7tURkf5a1SutfdOyXAmeE6SRo83Uh6WszodmMkxK5GM4JGrnt4pBisu5igXEydaW7qq2CdC6DOGjG+mEkN8/TA6p3cnoL/sPyz6evdjLlSeJ8rFBH6xWyIZCbrcpYEJzXaUOEaxxXxgYz5/cTiVKN2M1G2okQBUIYSY6bjEL4aUN5cfo7ogP3UvliEo3Eo0YgwuzR2v0KR6C1cZqZJSTnghIC/vAD32KdNQ+c3N+vl2OTsUVMC1GiWkngNx1OO1+kXW+YTnnTUOtOIswUP/Vqd5SYgAImMAfY8U9/iIgkQj6T2W6FsScy94IN9fFhE1UtzmLoBIuUFsVXJMTz+Jucth+IqoWFua9v1R93/k98p41pjtFX+H8DslVgfP097vju4KDlqN64xV1grw3ZLl4CiOe/A91oeLm2UHOq6wn3esB4r2EIQKb6jTVGu5sYCcdWpXr0AUVqcABPdgL+H7qJguBw09ojm6xNIrw2OocrDKsudk/okr/AwqEyPKw9WnMlQgLIKw1rODG2NvU9oR3GVGdMkUBZutL8VuFkERQGt6vQ2OCw0sV47VMkuYbacK/xyZFiRcrPJPb41zgbQj9XAEyLKCHex0SdDrx+tWUDqG8At2JHA==",
@@ -38,72 +33,31 @@ class CertificateValidator {
             "MIIFHDCCAwSgAwIBAgIJAPHBcqaZ6vUdMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMjIwMzIwMTgwNzQ4WhcNNDIwMzE1MTgwNzQ4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5jlRfdnJLmN0pTy/4lj4/7tv0Sk3iiKkypnEUtR6WfMgH0QZfKHM1+di+y9TFRtv6y//0rb+T+W8a9nsNL/ggjnar86461qO0rOs2cXjp3kOG1FEJ5MVmFmBGtnrKpa73XpXyTqRxB/M0n1n/W9nGqC4FSYa04T6N5RIZGBN2z2MT5IKGbFlbC8UrW0DxW7AYImQQcHtGl/m00QLVWutHQoVJYnFPlXTcHYvASLu+RhhsbDmxMgJJ0mcDpvsC4PjvB+TxywElgS70vE0XmLD+OJtvsBslHZvPBKCOdT0MS+tgSOIfga+z1Z1g7+DVagf7quvmag8jfPioyKvxnK/EgsTUVi2ghzq8wm27ud/mIM7AY2qEORR8Go3TVB4HzWQgpZrt3i5MIlCaY504LzSRiigHCzAPlHws+W0rB5N+er5/2pJKnfBSDiCiFAVtCLOZ7gLiMm0jhO2B6tUXHI/+MRPjy02i59lINMRRev56GKtcd9qO/0kUJWdZTdA2XoS82ixPvZtXQpUpuL12ab+9EaDK8Z4RHJYYfCT3Q5vNAXaiWQ+8PTWm2QgBR/bkwSWc+NpUFgNPN9PvQi8WEg5UmAGMCAwEAAaNjMGEwHQYDVR0OBBYEFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMB8GA1UdIwQYMBaAFDZh4QB8iAUJUYtEbEf/GkzJ6k8SMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgIEMA0GCSqGSIb3DQEBCwUAA4ICAQB8cMqTllHc8U+qCrOlg3H7174lmaCsbo/bJ0C17JEgMLb4kvrqsXZs01U3mB/qABg/1t5Pd5AORHARs1hhqGICW/nKMav574f9rZN4PC2ZlufGXb7sIdJpGiO9ctRhiLuYuly10JccUZGEHpHSYM2GtkgYbZba6lsCPYAAP83cyDV+1aOkTf1RCp/lM0PKvmxYN10RYsK631jrleGdcdkxoSK//mSQbgcWnmAEZrzHoF1/0gso1HZgIn0YLzVhLSA/iXCX4QT2h3J5z3znluKG1nv8NQdxei2DIIhASWfu804CA96cQKTTlaae2fweqXjdN1/v2nqOhngNyz1361mFmr4XmaKH/ItTwOe72NI9ZcwS1lVaCvsIkTDCEXdm9rCNPAY10iTunIHFXRh+7KPzlHGewCq/8TOohBRn0/NNfh7uRslOSZ/xKbN9tMBtw37Z8d2vvnXq/YWdsm1+JLVwn6yYD/yacNJBlwpddla8eaVMjsF6nBnIgQOf9zKSe06nSTqvgwUHosgOECZJZ1EuzbH4yswbt02tKtKEFhx+v+OTge/06V+jGsqTWLsfrOCNLuA8H++z+pUENmpqnnHovaI47gC+TNpkgYGkkBT6B/m/U01BuOBBTzhIlMEZq9qkDWuM2cA5kW5V3FJUcfHnw1IdYIg2Wxg7yHcQZemFQg=="
         )
 
+        // AOSP测试根证书指纹（和原项目一致，直接拉黑）
+        private const val AOSP_TEST_ROOT_FINGERPRINT =
+            "A8:7A:B3:88:AF:E0:30:14:40:E2:AE:2E:63:42:99:1E:80:8A:5F:78:9D:6E:AC:3E:6B:59:70:CB:E7:41:B3"
+
         private fun getX509Factory(): CertificateFactory {
             return CertificateFactory.getInstance("X.509")
         }
     }
 
-    // 加载内置谷歌根证书
-    private fun loadGoogleRootCertificates(): List<X509Certificate> {
-        val factory = getX509Factory()
-        return GOOGLE_ROOT_CERTS.mapNotNull { pem ->
-            try {
-                val bytes = Base64.getDecoder().decode(pem)
-                ByteArrayInputStream(bytes).use {
-                    factory.generateCertificate(it) as X509Certificate
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                null
-            }
-        }
-    }
-
-    // 强校验根证书公钥
-    private fun isRootPublicKeyTrusted(rootCert: X509Certificate): Boolean {
+    // 【对齐原项目】证书链完整校验
+    fun validateCertificateChain(chain: Array<X509Certificate>): Boolean {
         return try {
-            val keySpec = X509EncodedKeySpec(GOOGLE_ROOT_PUBLIC_KEY)
-            val googlePublicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec)
-            rootCert.publicKey == googlePublicKey
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
+            if (chain.isEmpty()) return false
+            val rootCert = chain.last()
 
-    // 检查是否是AOSP测试根证书
-    private fun isAospTestRoot(cert: X509Certificate): Boolean {
-        return try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            val fingerprint = digest.digest(cert.encoded)
-                .joinToString(":") { "%02X".format(it) }
-            fingerprint.equals(AOSP_TEST_ROOT_FINGERPRINT, ignoreCase = true)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    // 【统一方法名】完整证书链校验，和DeviceTrustChecker里的调用完全匹配
-    fun validate(certChain: Array<X509Certificate>): Boolean {
-        return try {
-            if (certChain.isEmpty()) return false
-            val rootCert = certChain.last()
-
-            // 1. 直接拉黑AOSP测试证书
+            // 1. 拉黑AOSP测试根证书
             if (isAospTestRoot(rootCert)) return false
+            // 2. 校验根证书公钥必须是谷歌官方公钥
+            if (!isGoogleRootPublicKey(rootCert)) return false
 
-            // 2. 强校验根证书公钥
-            if (!isRootPublicKeyTrusted(rootCert)) return false
-
-            // 3. PKIX标准证书链校验
-            val trustAnchors = loadGoogleRootCertificates()
-                .map { TrustAnchor(it, null) }
-                .toSet()
-
+            // 3. PKIX标准证书链校验（和原项目一致）
+            val trustAnchors = loadGoogleRootCerts().map { TrustAnchor(it, null) }.toSet()
             if (trustAnchors.isEmpty()) return false
 
-            val certPath = getX509Factory().generateCertPath(certChain.toList())
+            val certPath = getX509Factory().generateCertPath(chain.toList())
             val params = PKIXParameters(trustAnchors).apply {
                 isRevocationEnabled = false
                 date = Date()
@@ -114,6 +68,41 @@ class CertificateValidator {
             true
         } catch (e: Exception) {
             e.printStackTrace()
+            false
+        }
+    }
+
+    // 加载内置谷歌根证书
+    private fun loadGoogleRootCerts(): List<X509Certificate> {
+        val factory = getX509Factory()
+        return GOOGLE_ROOT_CERTS.mapNotNull { pem ->
+            try {
+                val bytes = Base64.getDecoder().decode(pem)
+                ByteArrayInputStream(bytes).use { factory.generateCertificate(it) as X509Certificate }
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    // 校验根证书公钥
+    private fun isGoogleRootPublicKey(rootCert: X509Certificate): Boolean {
+        return try {
+            val keySpec = X509EncodedKeySpec(GOOGLE_ROOT_PUBLIC_KEY)
+            val googlePublicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec)
+            rootCert.publicKey == googlePublicKey
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // 校验是否是AOSP测试根证书
+    private fun isAospTestRoot(cert: X509Certificate): Boolean {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val fingerprint = digest.digest(cert.encoded).joinToString(":") { "%02X".format(it) }
+            fingerprint.equals(AOSP_TEST_ROOT_FINGERPRINT, ignoreCase = true)
+        } catch (e: Exception) {
             false
         }
     }

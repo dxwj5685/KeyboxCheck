@@ -4,77 +4,61 @@ import org.bouncycastle.asn1.ASN1InputStream
 import org.bouncycastle.asn1.ASN1OctetString
 import org.bouncycastle.asn1.ASN1Sequence
 import org.bouncycastle.asn1.ASN1TaggedObject
-import org.bouncycastle.asn1.DEROctetString
 import java.security.cert.X509Certificate
 import java.util.Enumeration
 
 class AttestationExtensionParser {
     companion object {
-        // Android Key Attestation 固定扩展OID
-        private const val ATTESTATION_EXTENSION_OID = "1.3.6.1.4.1.11129.2.1.17"
-        // 设备序列号对应的Keymaster固定Tag 713
+        // 【对齐原项目】Android Key Attestation 固定OID
+        private const val KEY_ATTESTATION_OID = "1.3.6.1.4.1.11129.2.1.17"
+        // 【对齐原项目】Keymaster 标准Tag定义
         private const val TAG_ATTESTATION_ID_SERIAL = 713
+        // KeyDescription 结构索引（和AOSP、原项目完全一致）
+        private const val INDEX_SOFTWARE_ENFORCED = 6
+        private const val INDEX_TEE_ENFORCED = 7
     }
 
     // 从证书链中提取所有序列号
-    fun extractAllSerials(certChain: Array<X509Certificate>): List<String> {
+    fun extractAllSerials(chain: Array<X509Certificate>): List<String> {
         val serials = mutableListOf<String>()
-        certChain.forEach { cert: X509Certificate ->
-            val serial = extractSerialFromCert(cert)
-            if (serial != null && serial.isNotBlank()) {
-                serials.add(serial)
+        chain.forEach { cert ->
+            extractSerialFromCert(cert)?.takeIf { it.isNotBlank() }?.let {
+                serials.add(it)
             }
         }
         return serials
     }
 
-    // 从单个证书中解析序列号
+    // 【对齐原项目】从单个证书解析序列号
     private fun extractSerialFromCert(cert: X509Certificate): String? {
         return try {
-            // 1. 提取Attestation扩展字段
-            val extensionValue = cert.getExtensionValue(ATTESTATION_EXTENSION_OID)
-                ?: return null
+            // 1. 提取Attestation扩展
+            val extensionValue = cert.getExtensionValue(KEY_ATTESTATION_OID) ?: return null
+            // 2. 解析ASN.1结构，和原项目完全一致
+            val octetString = ASN1OctetString.getInstance(extensionValue)
+            val keyDescription = ASN1Sequence.getInstance(ASN1InputStream(octetString.octets).readObject())
+            // 3. 优先从TEE强制区读取，其次从软件区读取（和原项目逻辑一致）
+            val teeEnforced = keyDescription.getObjectAt(INDEX_TEE_ENFORCED) as ASN1Sequence
+            val softwareEnforced = keyDescription.getObjectAt(INDEX_SOFTWARE_ENFORCED) as ASN1Sequence
 
-            // 2. 解析ASN.1结构，获取KeyDescription根序列
-            val asn1Input = ASN1InputStream(extensionValue)
-            val octetString = asn1Input.readObject() as ASN1OctetString
-            val keyDescriptionSeq = ASN1InputStream(octetString.octets).readObject() as ASN1Sequence
-
-            // 3. KeyDescription结构：
-            // 索引6：softwareEnforced（软件层授权列表）
-            // 索引7：teeEnforced（TEE安全硬件强制授权列表）
-            val teeEnforced = keyDescriptionSeq.getObjectAt(7) as ASN1Sequence
-            val softwareEnforced = keyDescriptionSeq.getObjectAt(6) as ASN1Sequence
-
-            // 4. 优先从TEE中读取序列号，其次从软件区读取
-            extractSerialFromAuthList(teeEnforced) ?: extractSerialFromAuthList(softwareEnforced)
+            findSerialInAuthorizationList(teeEnforced) ?: findSerialInAuthorizationList(softwareEnforced)
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
-    // 从授权列表中解析Tag 713对应的序列号
-    private fun extractSerialFromAuthList(authList: ASN1Sequence): String? {
-        return try {
-            // 修复1：正确获取Java Enumeration，用while循环遍历
-            val objects: Enumeration<*> = authList.objects
-            // 修复2：安全遍历+类型校验，解决类型不匹配错误
-            while (objects.hasMoreElements()) {
-                val obj = objects.nextElement()
-                // 先校验类型，再安全转换
-                if (obj !is ASN1TaggedObject) continue
-                // 匹配序列号对应的Tag 713
-                if (obj.tagNo == TAG_ATTESTATION_ID_SERIAL) {
-                    val octetString = obj.baseObject as DEROctetString
-                    return String(octetString.octets)
-                }
+    // 【对齐原项目】从授权列表中查找序列号Tag
+    private fun findSerialInAuthorizationList(authList: ASN1Sequence): String? {
+        val objects: Enumeration<*> = authList.objects
+        while (objects.hasMoreElements()) {
+            val obj = objects.nextElement()
+            if (obj !is ASN1TaggedObject) continue
+            if (obj.tagNo == TAG_ATTESTATION_ID_SERIAL) {
+                val serialOctet = ASN1OctetString.getInstance(obj.baseObject)
+                return String(serialOctet.octets)
             }
-            // 没有找到对应Tag，返回null
-            null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
         }
+        return null
     }
 }

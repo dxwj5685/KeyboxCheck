@@ -8,61 +8,59 @@ import com.device.trust.attestation.validator.CertificateValidator
 import java.security.cert.X509Certificate
 
 class DeviceTrustChecker {
-    private val attest = AttestationManager()
+    private val attestManager = AttestationManager()
     private val certValidator = CertificateValidator()
-    private val parser = AttestationExtensionParser()
+    private val extensionParser = AttestationExtensionParser()
 
-    fun check(): TrustResult {
-        // 1. 获取硬件密钥证书链
-        val chain = attest.getAttestationCertificateChain()
+    fun checkDeviceTrust(): TrustResult {
+        // 1. 生成Attestation证书链（和原项目流程一致）
+        val certChain = attestManager.generateAttestationChain()
             ?: return TrustResult(
                 isTrusted = false,
                 riskType = RiskType.ATTESTATION_FAILED,
-                message = "获取证书链失败，设备不支持TEE硬件密钥证明"
+                message = "设备不支持Key Attestation，或Bootloader已解锁、系统被篡改"
             )
 
-        val x509Chain = chain.filterIsInstance<X509Certificate>().toTypedArray()
+        val x509Chain = certChain.filterIsInstance<X509Certificate>().toTypedArray()
 
-        // 2. 核心校验：仅信任谷歌官方根证书签发的证书链（这一步是核心，只要通过就说明是原厂密钥）
-        if (!certValidator.validate(x509Chain)) {
+        // 2. 证书链校验（核心安全校验，和原项目一致）
+        if (!certValidator.validateCertificateChain(x509Chain)) {
             return TrustResult(
                 isTrusted = false,
                 riskType = RiskType.ROOT_CA_INVALID,
-                message = "证书链校验失败，非谷歌官方根证书或AOSP公开测试密钥"
+                message = "证书链校验失败，非谷歌官方根证书签发，疑似非原厂设备"
             )
         }
 
-        // 3. 从证书链中提取所有SERIALNUMBER
-        val certSerials = parser.extractAllSerials(x509Chain)
+        // 3. 提取证书链中的所有序列号
+        val serialList = extensionParser.extractAllSerials(x509Chain)
 
-        // 4. 核心规则：多SERIALNUMBER直接判定非原厂密钥
-        if (certSerials.size > 1) {
+        // 4. 你的核心规则：多序列号直接判定非原厂密钥
+        if (serialList.size > 1) {
             return TrustResult(
                 isTrusted = false,
                 riskType = RiskType.MULTIPLE_SERIAL_NUMBER,
                 message = "似乎是非原厂密钥",
-                certificateSerial = certSerials.joinToString(", ")
+                certificateSerial = serialList.joinToString(", ")
             )
         }
 
-        // 5. 序列号校验逻辑优化，区分不同场景，避免误判
-        val certSerial = certSerials.firstOrNull()
+        // 5. 最终可信判定（和原项目逻辑对齐）
+        val certSerial = serialList.firstOrNull()
         return when {
-            // 证书有绑定序列号，校验通过
             !certSerial.isNullOrBlank() -> {
                 TrustResult(
                     isTrusted = true,
                     riskType = RiskType.TRUSTED,
-                    message = "设备可信，原厂密钥校验通过",
+                    message = "✅ 设备可信，原厂密钥校验通过",
                     certificateSerial = certSerial
                 )
             }
-            // 证书无序列号，但是证书链合法，说明是Bootloader解锁/设备不支持ID Attestation
             else -> {
                 TrustResult(
                     isTrusted = true,
                     riskType = RiskType.TRUSTED,
-                    message = "设备可信，证书由谷歌官方根证书签发。设备未写入序列号（Bootloader已解锁或设备不支持ID Attestation）"
+                    message = "⚠️ 设备可信，证书由谷歌官方根证书签发。设备未写入序列号（Bootloader已解锁或设备不支持ID Attestation）"
                 )
             }
         }
